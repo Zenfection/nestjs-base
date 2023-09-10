@@ -8,6 +8,10 @@ Use 3rd party ORM Prisma with [nestjs-prisma](https://nestjs-prisma.dev/)
 nest add nestjs-prisma
 ```
 
+```bash
+pnpm add -D ts-node @types/node
+```
+
 
 - ✅ Example create a model in `prisma/schema.prisma`
 
