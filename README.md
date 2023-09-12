@@ -44,3 +44,15 @@ nest g service iam/authencication
 nest g class iam/authencication/dto/sign-in.dto --no-spec --flat
 nest g class iam/authencication/dto/sign-up.dto --no-spec --flat
 ```
+
+### JWT
+
+```bash
+pnpm i @nestjs/config @nestjs/jwt
+```
+
+### Protect routes by Guards
+
+```bash
+nest g /iam/authentication/guards/access-token
+```

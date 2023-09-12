@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  Inject,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -8,12 +9,18 @@ import { PrismaService } from 'nestjs-prisma';
 import { SignUpDto } from './dto/sign-up.dto';
 import { User } from 'src/users/entities/user.entity';
 import { SignInDto } from './dto/sign-in.dto';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigType } from '@nestjs/config';
+import jwtConfig from '../config/jwt.config';
 
 @Injectable()
 export class AuthencicationService {
   constructor(
-    private hashService: HashingService,
-    private prisma: PrismaService,
+    private readonly hashService: HashingService,
+    private readonly prisma: PrismaService,
+    private readonly jwtService: JwtService,
+    @Inject(jwtConfig.KEY)
+    private readonly jwtConfiguration: ConfigType<typeof jwtConfig>,
   ) {}
 
   async checkExist(email: string): Promise<User | null> {
@@ -46,7 +53,7 @@ export class AuthencicationService {
     }
   }
 
-  async signIn(signInDto: SignInDto): Promise<boolean> {
+  async signIn(signInDto: SignInDto): Promise<{ accessToken: string }> {
     const user = await this.checkExist(signInDto.email);
     if (!user) throw new ConflictException('Email not exists');
 
@@ -57,6 +64,21 @@ export class AuthencicationService {
 
     if (!isMatch) throw new UnauthorizedException('User or password not match');
 
-    return true;
+    const accessToken = await this.jwtService.signAsync(
+      {
+        sub: user.id,
+        email: user.email,
+      },
+      {
+        audience: this.jwtConfiguration.audience,
+        issuer: this.jwtConfiguration.issuer,
+        secret: this.jwtConfiguration.secret,
+        expiresIn: this.jwtConfiguration.accessTokenTtl,
+      },
+    );
+
+    return {
+      accessToken,
+    };
   }
 }
