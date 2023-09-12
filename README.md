@@ -19,6 +19,7 @@ nest g service iam/bcrypt
 
 ```bash
 pnpm i class-validator class-transformer
+pnpm i -D @nestjs/mapped-types
 ```
 
 Use them in `main.ts`
