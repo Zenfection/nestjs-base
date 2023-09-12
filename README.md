@@ -38,11 +38,11 @@ await app.listen(3000);
 
 
 ```bash
-nest g controller iam/authencication
-nest g service iam/authencication
+nest g controller iam/authentication
+nest g service iam/authentication
 
-nest g class iam/authencication/dto/sign-in.dto --no-spec --flat
-nest g class iam/authencication/dto/sign-up.dto --no-spec --flat
+nest g class iam/authentication/dto/sign-in.dto --no-spec --flat
+nest g class iam/authentication/dto/sign-up.dto --no-spec --flat
 ```
 
 ### JWT
@@ -54,5 +54,5 @@ pnpm i @nestjs/config @nestjs/jwt
 ### Protect routes by Guards
 
 ```bash
-nest g /iam/authentication/guards/access-token
+nest g guard iam/authentication/guards/access-token
 ```

@@ -6,13 +6,13 @@ import {
   Post,
   // Res,
 } from '@nestjs/common';
-import { AuthencicationService } from './authencication.service';
+import { AuthenticationService } from './authentication.service';
 import { SignUpDto } from './dto/sign-up.dto';
 // import { Response } from 'express';
 
-@Controller('authencication')
-export class AuthencicationController {
-  constructor(private readonly authService: AuthencicationService) {}
+@Controller('authentication')
+export class AuthenticationController {
+  constructor(private readonly authService: AuthenticationService) {}
 
   @Post('sign-up')
   signUp(@Body() signUpDto: SignUpDto) {

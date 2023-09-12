@@ -14,7 +14,7 @@ import { ConfigType } from '@nestjs/config';
 import jwtConfig from '../config/jwt.config';
 
 @Injectable()
-export class AuthencicationService {
+export class AuthenticationService {
   constructor(
     private readonly hashService: HashingService,
     private readonly prisma: PrismaService,
