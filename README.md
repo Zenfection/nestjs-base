@@ -120,3 +120,36 @@ POSTGRES_USER=zenfection
 POSTGRES_PASSWORD=123456
 POSTGRES_DB=test
 ```
+
+✅ Exception Filter Global
+
+```ts
+//src/main.ts
+...
+import { PrismaClientExceptionFilter } from 'nestjs-prisma';
+...
+  const { httpAdapter } = app.get(HttpAdapterHost);
+  app.useGlobalFilters(new PrismaClientExceptionFilter(httpAdapter));
+...
+  await app.listen(3000);
+```
+
+✅ Logging Middleware
+
+Custom in module
+
+```ts
+import { Module } from '@nestjs/common';
+import { PrismaModule, loggingMiddleware } from 'nestjs-prisma';
+
+@Module({
+  imports: [
+    PrismaModule.forRoot({
+      prismaServiceOptions: {
+        middlewares: [loggingMiddleware()],
+      },
+    }),
+  ],
+})
+export class AppModule {}
+```
