@@ -36,7 +36,8 @@ export class AuthenticationService {
     user.email = signUp.email;
     user.password = await this.hashService.hash(signUp.password);
 
-    if (await this.checkExist(signUp.email)) return null;
+    if ((await this.checkExist(user.email)) !== null)
+      throw new ConflictException('Email already exists');
 
     try {
       await this.prisma.user.create({
