@@ -108,12 +108,7 @@ export class AccessTokenGuard implements CanActivate {
 
 ```ts
 // src/iam/authentication/guards/authentication/authentication.guard.ts
-import {
-  CanActivate,
-  ExecutionContext,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AccessTokenGuard } from '../access-token/access-token.guard';
 import { AuthType } from '../../enums/auth-type.enum';
@@ -141,19 +136,27 @@ export class AuthenticationGuard implements CanActivate {
       [(context.getHandler(), context.getClass())],
     ) ?? [AuthenticationGuard.defaultAuthType];
 
-    const guards = authTypes.map((type: any) => this.authTypeGuardMap[type]);
-    let error = new UnauthorizedException('No token provided');
+    const guards = authTypes
+      .map((type: any) => this.authTypeGuardMap[type])
+      .flat();
 
-    for (const instance of guards) {
-      const canActivate = await Promise.resolve(
-        instance.canActivate(context),
-      ).catch((err: any) => (error = err));
+    const guardPromises = guards.map((guard: any) =>
+      guard.canActivate(context),
+    );
 
-      if (canActivate) return true;
+    const results = await Promise.allSettled(guardPromises); //? return 'rejected' or 'fulfilled'
 
-      throw error;
+    const rejected = results.find((result: any) => {
+      return result.status === 'rejected';
+    });
+
+    if (rejected) {
+      throw rejected['reason'];
     }
+
+    return results.some(
+      (result: any) => result.status === 'fulfilled' && result.value,
+    );
   }
 }
-
 ```
