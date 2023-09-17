@@ -112,7 +112,7 @@ import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AccessTokenGuard } from '../access-token/access-token.guard';
 import { AuthType } from '../../enums/auth-type.enum';
-import { AUTH_TYPE_KEY } from '../../decorator/auth/auth.decorator';
+import { AUTH_TYPE_KEY } from '../../decorators/auth.decorator';
 
 @Injectable()
 export class AuthenticationGuard implements CanActivate {
@@ -122,8 +122,8 @@ export class AuthenticationGuard implements CanActivate {
     AuthType,
     CanActivate | CanActivate[]
   > = {
-    [AuthType.Bearer]: this.accessTokenAuth,
     [AuthType.None]: { canActivate: () => true },
+    [AuthType.Bearer]: this.accessTokenAuth,
   };
 
   constructor(
@@ -133,7 +133,7 @@ export class AuthenticationGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const authTypes = this.reflector.getAllAndOverride<AuthType[]>(
       AUTH_TYPE_KEY,
-      [(context.getHandler(), context.getClass())],
+      [context.getHandler(), context.getClass()],
     ) ?? [AuthenticationGuard.defaultAuthType];
 
     const guards = authTypes
@@ -159,4 +159,38 @@ export class AuthenticationGuard implements CanActivate {
     );
   }
 }
+
+```
+
+
+```bash
+nest g decorator iam/authentication/decorators/active-user --flat
+nest g interface iam/interfaces/active-user-data --flat
+```
+
+```bash
+nest g class iam/authentication/dto/refresh-token.dto --no-spec --flat
+```
+
+### Use Redis to store refresh token
+
+```bash
+pnpm i ioredis
+```
+
+```bash
+nest g class iam/authentication/refresh-token-ids.storage
+```
+
+```bash
+```
+
+```bash
+
+
+## 3. Authorization
+
+```bash
+nest g decorator iam/authorization/decorators/roles --flat
+nest g guard iam/authorization/guards/roles
 ```

@@ -10,20 +10,35 @@ services:
       - '3000:3000'
     depends_on:
       - nest-postgres
+      - nest-redis
     env_file:
       - .env
 
   nest-postgres:
-    image: postgres:14
+    image: postgres:latest
     container_name: nest-postgres
     restart: always
     ports:
       - '5432:5432'
+    environment:
+      - POSTGRES_USER=zenfection
+      - POSTGRES_PASSWORD=123456
     env_file:
       - .env
     volumes:
       - nest-postgres:/var/lib/postgresql/data
 
+  nest-redis:
+    image: redis:latest
+    container_name: redis
+    restart: always
+    ports:
+      - '6379:6379'
+    volumes:
+      - nest-redis:/var/lib/redis/data
+
 volumes:
   nest-postgres:
-    name: nest-postgres-db
+    name: postgres-db
+  nest-redis:
+    name: redis-db

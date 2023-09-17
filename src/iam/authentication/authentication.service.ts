@@ -12,6 +12,13 @@ import { SignInDto } from './dto/sign-in.dto';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigType } from '@nestjs/config';
 import jwtConfig from '../config/jwt.config';
+import { ActiveUserData } from '../interfaces/active-user-data.interface';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
+import {
+  RefreshTokenIdsStorage,
+  RefreshTokenIdsStorageError,
+} from './refresh-token-ids.storage/refresh-token-ids.storage';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class AuthenticationService {
@@ -21,14 +28,15 @@ export class AuthenticationService {
     private readonly jwtService: JwtService,
     @Inject(jwtConfig.KEY)
     private readonly jwtConfiguration: ConfigType<typeof jwtConfig>,
+    private readonly refreshTokenIdsStorage: RefreshTokenIdsStorage,
   ) {}
 
   async checkExist(email: string): Promise<User | null> {
-    return await this.prisma.user.findFirst({
+    return (await this.prisma.user.findFirst({
       where: {
         email,
       },
-    });
+    })) as User | null;
   }
 
   async signUp(signUp: SignUpDto) {
@@ -54,7 +62,7 @@ export class AuthenticationService {
     }
   }
 
-  async signIn(signInDto: SignInDto): Promise<{ accessToken: string }> {
+  async signIn(signInDto: SignInDto) {
     const user = await this.checkExist(signInDto.email);
     if (!user) throw new ConflictException('Email not exists');
 
@@ -65,21 +73,79 @@ export class AuthenticationService {
 
     if (!isMatch) throw new UnauthorizedException('User or password not match');
 
-    const accessToken = await this.jwtService.signAsync(
+    return await this.generateToken(user);
+  }
+
+  async generateToken(user: User) {
+    const refreshTokenId = randomUUID();
+    const [accessToken, refreshToken] = await Promise.all([
+      this.signToken<Partial<ActiveUserData>>(
+        user.id,
+        this.jwtConfiguration.accessTokenTtl,
+        {
+          email: user.email,
+          role: user.role,
+        },
+      ),
+      this.signToken(user.id, this.jwtConfiguration.refreshTokenTtl, {
+        refreshTokenId,
+      }),
+      await this.refreshTokenIdsStorage.insert(user.id, refreshTokenId),
+    ]);
+    return {
+      accessToken,
+      refreshToken,
+    };
+  }
+
+  async refreshToken(refreshToken: RefreshTokenDto) {
+    try {
+      const { sub, refreshTokenId } = await this.jwtService.verifyAsync<
+        Pick<ActiveUserData, 'sub'> & { refreshTokenId: string }
+      >(refreshToken.refreshToken, {
+        secret: this.jwtConfiguration.secret,
+        audience: this.jwtConfiguration.audience,
+        issuer: this.jwtConfiguration.issuer,
+      });
+
+      const user = await this.prisma.user.findUnique({
+        where: {
+          id: sub,
+        },
+      });
+
+      const isValid = await this.refreshTokenIdsStorage.validate(
+        user.id,
+        refreshTokenId,
+      );
+      console.log(isValid);
+      if (isValid) {
+        await this.refreshTokenIdsStorage.invalidate(user.id);
+      } else {
+        throw new Error('Refresh Token is invalid');
+      }
+
+      return await this.generateToken(user as User);
+    } catch (error) {
+      if (error instanceof RefreshTokenIdsStorageError) {
+        throw new UnauthorizedException('Access denied');
+      }
+      throw new UnauthorizedException(error.message);
+    }
+  }
+
+  private async signToken<T>(userID: number, expiresIn: number, payload?: T) {
+    return await this.jwtService.signAsync(
       {
-        sub: user.id,
-        email: user.email,
+        sub: userID,
+        ...payload,
       },
       {
         audience: this.jwtConfiguration.audience,
         issuer: this.jwtConfiguration.issuer,
         secret: this.jwtConfiguration.secret,
-        expiresIn: this.jwtConfiguration.accessTokenTtl,
+        expiresIn,
       },
     );
-
-    return {
-      accessToken,
-    };
   }
 }
