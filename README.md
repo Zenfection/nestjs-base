@@ -1,10 +1,10 @@
-#
+# Authentication and Authorization
 
-## 1. Install bcrypt
+## 1. Install package nesssaery
 
 ```bash
-pnpm i bcrypt
-pnpm i -D @types/bcrypt
+pnpm i bcrypt class-validator class-transformer
+pnpm i -D @types/bcrypt @nestjs/mapped-types
 ```
 
 ```bash
@@ -13,36 +13,61 @@ nest g service iam/hashing
 nest g service iam/bcrypt
 ```
 
+> ```ts
+> // iam/hashing/hashing.service.ts
+> import { Injectable } from '@nestjs/common';
+>
+> @Injectable()
+> export abstract class HashingService {
+>   abstract hash(data: string | Buffer): Promise<string>;
+>   abstract compare(data: string | Buffer, encrypt: string): Promise<boolean>;
+> }
+> ```
+>
+> ```ts
+> // iam/hashing/bcrypt.service.ts
+> import { Injectable } from '@nestjs/common';
+> import { HashingService } from './hashing.service';
+> import { hash, genSalt, compare } from 'bcrypt';
+>
+> @Injectable()
+> export class BcryptService implements HashingService {
+>   async hash(data: string | Buffer): Promise<string> {
+>     const salt = await genSalt(10);
+>     return hash(data, salt);
+>   }
+>   async compare(data: string | Buffer, encrypt: string): Promise<boolean> {
+>     return compare(data, encrypt);
+>   }
+> }
+> ```
+>
+> ```ts
+> // use class-validator in main.ts
+> ...
+> app.useGlobalPipes(
+>   new ValidationPipe({
+>     transform: true,
+>     whitelist: true,
+>   }),
+> );
+> ...
+> await app.listen(3000);
+> ```
+
 ## 2. Authentication
 
-### Install package nessary
-
 ```bash
-pnpm i class-validator class-transformer
-pnpm i -D @nestjs/mapped-types
+pnpm i @nestjs/passport passport passport-local
+pnpm i -D @types/passport-local
 ```
-
-Use them in `main.ts`
-
-```ts
-...
-app.useGlobalPipes(
-  new ValidationPipe({
-    transform: true,
-    whitelist: true,
-  }),
-);
-...
-await app.listen(3000);
-```
-
 
 ```bash
 nest g controller iam/authentication
 nest g service iam/authentication
 
-nest g class iam/authentication/dto/sign-in.dto --no-spec --flat
-nest g class iam/authentication/dto/sign-up.dto --no-spec --flat
+nest g class iam/authentication/dto/sign-in.dto --flat
+nest g class iam/authentication/dto/sign-up.dto --flatW
 ```
 
 ### JWT
@@ -159,9 +184,7 @@ export class AuthenticationGuard implements CanActivate {
     );
   }
 }
-
 ```
-
 
 ```bash
 nest g decorator iam/authentication/decorators/active-user --flat
@@ -169,7 +192,7 @@ nest g interface iam/interfaces/active-user-data --flat
 ```
 
 ```bash
-nest g class iam/authentication/dto/refresh-token.dto --no-spec --flat
+nest g class iam/authentication/dto/refresh-token.dto --flat
 ```
 
 ### Use Redis to store refresh token
@@ -182,15 +205,80 @@ pnpm i ioredis
 nest g class iam/authentication/refresh-token-ids.storage
 ```
 
-```bash
-```
-
-```bash
-
-
 ## 3. Authorization
+
+### Roles
 
 ```bash
 nest g decorator iam/authorization/decorators/roles --flat
 nest g guard iam/authorization/guards/roles
 ```
+
+### Permissions
+
+```bash
+nest g class coffees/coffees.permission --flat
+nest g class iam/authorization/permissions.type --flat
+nest g decorator iam/authorization/decorators/permissions --flat
+nest g guard iam/authorization/guards/permissions
+```
+
+### Policies
+
+```bash
+nest g interface iam/authorization/policies/interface/policy --flat
+nest g interface iam/authorization/policies/interface/policy-handler --flat
+nest g class iam/authorization/policies/policy-handlers.storage --flat
+nest g class iam/authorization/policies/framwork-contributor.policy --flat
+nest g decorator iam/authorization/decorators/policies --flat
+nest g guard iam/authorization/guards/policies
+```
+
+### 2FA
+
+```bash
+pnpm i otplib qrcode
+pnpm i -D @types/qrcode
+```
+
+```bash
+nest g service iam/authentication/otp-authentication --flat
+```
+
+## Using Passport
+
+```bash
+pnpm i passport @nestjs/passport express-session
+pnpm i connect-redis@6.1.3
+pnpm i -D @types/passport @types/connect-redis @types/express-session
+```
+
+```bash
+nest g service iam/authentication/session-authentication --flat
+nest g controller iam/authentication/session-authentication --flat
+```
+
+```bash
+nest g class iam/authentication/serializer/user-serializer
+```
+
+
+```bash
+nest g guard iam/authentication/guards/session
+```
+
+## Extra: Use REPL
+
+```ts
+// relp.ts
+import { repl } from '@nestjs/core';
+import { AppModule } from './app.module';
+
+async function bootstrap() {
+  await repl(AppModule);
+}
+
+bootstrap();
+```
+
+Run as: `nest start --entryFile repl`

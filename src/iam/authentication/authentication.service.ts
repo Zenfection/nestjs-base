@@ -1,3 +1,4 @@
+import { OtpAuthenticationService } from './otp-authentication.service';
 import {
   ConflictException,
   Inject,
@@ -29,14 +30,15 @@ export class AuthenticationService {
     @Inject(jwtConfig.KEY)
     private readonly jwtConfiguration: ConfigType<typeof jwtConfig>,
     private readonly refreshTokenIdsStorage: RefreshTokenIdsStorage,
+    private readonly otpAuthenticationService: OtpAuthenticationService,
   ) {}
 
   async checkExist(email: string): Promise<User | null> {
-    return (await this.prisma.user.findFirst({
+    return (await this.prisma.user.findUnique({
       where: {
         email,
       },
-    })) as User | null;
+    })) as User;
   }
 
   async signUp(signUp: SignUpDto) {
@@ -63,6 +65,7 @@ export class AuthenticationService {
   }
 
   async signIn(signInDto: SignInDto) {
+    console.log(signInDto);
     const user = await this.checkExist(signInDto.email);
     if (!user) throw new ConflictException('Email not exists');
 
@@ -72,6 +75,14 @@ export class AuthenticationService {
     );
 
     if (!isMatch) throw new UnauthorizedException('User or password not match');
+
+    if (user.isTfaEnabled) {
+      const isValid = this.otpAuthenticationService.verifyCode(
+        signInDto.tfaCode,
+        user.tfaSecret,
+      );
+      if (!isValid) throw new UnauthorizedException('Invalid TFA code');
+    }
 
     return await this.generateToken(user);
   }
@@ -85,6 +96,7 @@ export class AuthenticationService {
         {
           email: user.email,
           role: user.role,
+          permissions: user.permissions,
         },
       ),
       this.signToken(user.id, this.jwtConfiguration.refreshTokenTtl, {
@@ -118,7 +130,6 @@ export class AuthenticationService {
         user.id,
         refreshTokenId,
       );
-      console.log(isValid);
       if (isValid) {
         await this.refreshTokenIdsStorage.invalidate(user.id);
       } else {

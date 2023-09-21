@@ -18,12 +18,8 @@ export class RefreshTokenIdsStorage
   private redisClient: redisClient;
 
   onApplicationBootstrap() {
-    this.redisClient = new redisClient({
-      host: 'localhost',
-      port: 6379,
-    });
+    this.redisClient = new redisClient(process.env.REDIS_URL);
   }
-
   onApplicationShutdown() {
     this.redisClient.quit();
   }
