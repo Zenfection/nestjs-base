@@ -10,7 +10,7 @@ pnpm i -D @types/bcrypt @nestjs/mapped-types
 ```bash
 nest g module iam
 nest g service iam/hashing
-nest g service iam/bcrypt
+nest g service iam/hashing/bcrypt
 ```
 
 > ```ts
@@ -58,23 +58,57 @@ nest g service iam/bcrypt
 ## 2. Authentication
 
 ```bash
-pnpm i @nestjs/passport passport passport-local
-pnpm i -D @types/passport-local
+nest g controller iam/authentication
+nest g service iam/authentication
+nest g resource users
 ```
 
 ```bash
-nest g controller iam/authentication
-nest g service iam/authentication
-
-nest g class iam/authentication/dto/sign-in.dto --flat
-nest g class iam/authentication/dto/sign-up.dto --flatW
+nest g class iam/authentication/dto/sign-in.dto
+nest g class iam/authentication/dto/sign-up.dto
 ```
+
+> ```ts
+> // SignUp same
+> import { IsEmail, MinLength } from 'class-validator';
+>
+> export class SignInDto {
+>   @IsEmail()
+>   email: string;
+>
+>   @MinLength(8)
+>   password: string;
+> }
+> ```
 
 ### JWT
 
 ```bash
-pnpm i @nestjs/config @nestjs/jwt
+pnpm i @nestjs/passport passport passport-jwt @nestjs/config @nestjs/jwt
+pnpm i -D @types/passport-jwt
 ```
+
+```bash
+nest g class iam/config/jwt.config
+```
+
+> ```ts
+> import { registerAs } from '@nestjs/config';
+>
+> export default registerAs('jwt', () => ({
+>   secret: process.env.JWT_SECRET,
+>   audience: process.env.JWT_AUDIENCE,
+>   issuer: process.env.JWT_ISSUER,
+>   accessTokenTtl: parseInt(process.env.JWT_ACESSS_TOKEN_TTL ?? '3600', 10),
+>   refreshTokenTtl: parseInt(process.env.JWT_REFRESH_TOKEN_TTL ?? '86400', 10),
+> }));
+> ```
+
+```bash
+nest g class iam/authentication/strategies/access-token.strategy
+nest g class iam/authentication/strategies/refresh-token.strategy
+```
+
 
 ### Protect routes by Guards
 
@@ -248,8 +282,7 @@ nest g service iam/authentication/otp-authentication --flat
 ## Using Passport
 
 ```bash
-pnpm i passport @nestjs/passport express-session
-pnpm i connect-redis@6.1.3
+pnpm i passport @nestjs/passport express-session connect-redis@6.1.3
 pnpm i -D @types/passport @types/connect-redis @types/express-session
 ```
 
@@ -261,7 +294,6 @@ nest g controller iam/authentication/session-authentication --flat
 ```bash
 nest g class iam/authentication/serializer/user-serializer
 ```
-
 
 ```bash
 nest g guard iam/authentication/guards/session

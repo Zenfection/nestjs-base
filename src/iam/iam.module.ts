@@ -26,20 +26,19 @@ import * as createRedisStore from 'connect-redis';
 import { Redis } from 'ioredis';
 
 import { UserSerializer } from './authentication/serializer/user-serializer/user-serializer';
+import { PassportModule } from '@nestjs/passport';
+import { LocalStrategy } from './authentication/strategies/local.strategy/local.strategy';
 
 @Module({
   imports: [
     JwtModule.registerAsync(jwtConfig.asProvider()),
     ConfigModule.forFeature(jwtConfig),
+    PassportModule,
   ],
   providers: [
     {
       provide: HashingService,
       useClass: BcryptService,
-    },
-    {
-      provide: APP_GUARD,
-      useClass: AuthenticationGuard,
     },
     {
       provide: APP_GUARD,
@@ -58,6 +57,7 @@ import { UserSerializer } from './authentication/serializer/user-serializer/user
       useClass: PoliciesGuard,
     },
     AccessTokenGuard,
+    LocalStrategy,
     AuthenticationService,
     RefreshTokenIdsStorage,
     FramworkContributorPolicyHandler,
