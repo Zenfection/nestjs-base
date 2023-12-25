@@ -12,6 +12,8 @@ import { CoffeesService } from './coffees.service';
 import { CreateCoffeeDto } from './dto/create-coffee.dto';
 import { UpdateCoffeeDto } from './dto/update-coffee.dto';
 import { Coffee } from './entities/coffee.entity';
+import { LazyModuleLoader } from '@nestjs/core';
+import { RewardsService } from 'src/rewards/rewards.service';
 
 export const COFFEE_DATA_SOURCE = Symbol('COFFEE_DATA_SOURCE'); // Symbol is a unique value that can be used as a key for object properties.
 
@@ -25,10 +27,20 @@ export class CoffeesController {
     private readonly coffeesService: CoffeesService,
     @Inject(COFFEE_DATA_SOURCE)
     private dataSoruce: CoffeeDataSource,
+    private readonly lazyModuleLoader: LazyModuleLoader,
   ) {}
 
   @Post()
-  create(@Body() createCoffeeDto: CreateCoffeeDto) {
+  async create(@Body() createCoffeeDto: CreateCoffeeDto) {
+    console.time();
+    const rewardsModuleRef = await this.lazyModuleLoader.load(() =>
+      import('../rewards/rewards.module').then((m) => m.RewardsModule),
+    );
+    const rewardsService =
+      await rewardsModuleRef.resolve<RewardsService>(RewardsService);
+
+    rewardsService.grantReward();
+    console.timeEnd();
     return this.coffeesService.create(createCoffeeDto);
   }
 
