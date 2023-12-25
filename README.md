@@ -37,7 +37,7 @@ async create (){
 curl -H "Content-Type: application/json"  http://localhost:3000/coffees -d "{}"
 ```
 
-### 3. IoC Container
+## 3. IoC Container
 
 ```bash
 nest g mo scheduler
@@ -117,4 +117,88 @@ export const IntervalHost: ClassDecorator = SetMetadata(
   INTERVAL_HOST_KEY,
   true,
 );
+```
+
+## 4. Worker Thread
+
+Test with fibonacci recursive function
+
+```bash
+nest g mo fibonacci
+nest g co fibonacci --no-spec
+
+#Test curl
+curl -X GET "http://localhost:3000/fibonacci/?n=40"
+```
+
+Init worker thread
+
+```bash
+nest g cl fibonacci/fibonacci.worker --no-spec
+nest g cl fibinacci/fibonacci-worker.host --no-spec
+```
+
+```ts
+//fibonacci.worker.ts
+import { parentPort } from 'worker_threads';
+
+function fib(n: number) {
+  if (n < 2) {
+    return 1;
+  }
+  return fib(n - 1) + fib(n - 2);
+}
+
+parentPort.on('message', ({ n, id }) => {
+  const result = fib(n);
+  parentPort.postMessage({ id, result });
+});
+```
+
+```ts
+//fibonacci-worker.host.ts
+import { OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
+import { randomUUID } from 'crypto';
+import { join } from 'path';
+import { Observable, filter, firstValueFrom, fromEvent, map } from 'rxjs';
+import { Worker } from 'worker_threads';
+
+export class FibonacciWorkerHost
+  implements OnApplicationBootstrap, OnApplicationShutdown
+{
+  private worker: Worker;
+  private message$: Observable<{ id: string; result: number }>;
+
+  onApplicationBootstrap() {
+    this.worker = new Worker(
+      join(__dirname, '../fibonacci.worker', 'fibonacci.worker.js'),
+    );
+    this.message$ = fromEvent(this.worker, 'message') as Observable<{
+      id: string;
+      result: number;
+    }>;
+  }
+
+  onApplicationShutdown() {
+    this.worker.terminate();
+  }
+
+  run(n: number) {
+    const uid = randomUUID();
+    this.worker.postMessage({ n, id: uid });
+
+    return firstValueFrom(
+      this.message$.pipe(
+        filter(({ id }) => id === uid),
+        map(({ result }) => result),
+      ),
+    );
+  }
+}
+```
+
+Install piscina for worker thread pool
+
+```bash
+pnpm add piscina
 ```
