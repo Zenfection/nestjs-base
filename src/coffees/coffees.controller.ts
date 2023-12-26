@@ -7,6 +7,8 @@ import {
   Param,
   Delete,
   Inject,
+  UseInterceptors,
+  RequestTimeoutException,
 } from '@nestjs/common';
 import { CoffeesService } from './coffees.service';
 import { CreateCoffeeDto } from './dto/create-coffee.dto';
@@ -14,6 +16,7 @@ import { UpdateCoffeeDto } from './dto/update-coffee.dto';
 import { Coffee } from './entities/coffee.entity';
 import { LazyModuleLoader } from '@nestjs/core';
 import { RewardsService } from 'src/rewards/rewards.service';
+import { CircuitBreakerInterceptor } from 'src/common/interceptors/circuit-breaker/circuit-breaker.interceptor';
 
 export const COFFEE_DATA_SOURCE = Symbol('COFFEE_DATA_SOURCE'); // Symbol is a unique value that can be used as a key for object properties.
 
@@ -21,6 +24,7 @@ export interface CoffeeDataSource {
   [index: number]: Coffee;
 }
 
+@UseInterceptors(CircuitBreakerInterceptor)
 @Controller('coffees')
 export class CoffeesController {
   constructor(
@@ -46,6 +50,8 @@ export class CoffeesController {
 
   @Get()
   findAll() {
+    console.log('findAll executed');
+    throw new RequestTimeoutException('Timeout error');
     return this.coffeesService.findAll();
   }
 

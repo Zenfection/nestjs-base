@@ -202,3 +202,96 @@ Install piscina for worker thread pool
 ```bash
 pnpm add piscina
 ```
+
+## 5. Circuit Breaker Pattern
+
+```bash
+nest g interceptor common/interceptors/circuit-breaker --no-flat
+nest g class common/interceptors/circuit-breaker --no-spec --no-flat
+```
+
+```ts
+// circuit-breaker.ts
+...
+const SUCCESS_THRESHOLD = 3;
+const FAILURE_THRESHOLD = 3;
+const OPEN_TO_HALF_OPEN_WAIT_TIME = 60000;
+
+enum CircuitBreakerState {
+  Closed,
+  Open,
+  HalfOpen,
+}
+
+export class CircuitBreaker {
+  private state = CircuitBreakerState.Closed;
+  private failureCount = 0;
+  private successCount = 0;
+  private lastError: Error;
+  private nextAttempt: number;
+
+  exec(next: CallHandler) {
+    if (this.state === CircuitBreakerState.Open) {
+      if (this.nextAttempt > Date.now()) {
+        return throwError(() => this.lastError);
+      }
+      this.state = CircuitBreakerState.HalfOpen;
+    }
+    return next.handle().pipe(
+      tap({
+        next: () => this.handleOnSuccess(),
+        error: (err) => this.handleOnError(err),
+      }),
+    );
+  }
+
+  private handleOnSuccess() {
+    this.failureCount = 0;
+    if (this.state === CircuitBreakerState.HalfOpen) {
+      this.successCount++;
+      if (this.successCount >= SUCCESS_THRESHOLD) {
+        this.successCount = 0;
+        this.state = CircuitBreakerState.Closed;
+      }
+    }
+  }
+
+  private handleOnError(err: Error) {
+    this.failureCount++;
+    if (
+      this.failureCount >= FAILURE_THRESHOLD ||
+      this.state === CircuitBreakerState.HalfOpen
+    ) {
+      this.state = CircuitBreakerState.Open;
+      this.lastError = err;
+      this.nextAttempt = Date.now() + OPEN_TO_HALF_OPEN_WAIT_TIME;
+    }
+  }
+}
+```
+
+```ts
+// circuit-breaker.interceptor.ts
+...
+@Injectable()
+export class CircuitBreakerInterceptor implements NestInterceptor {
+  private readonly circuitBreakerbyHandler = new WeakMap<
+    // eslint-disable-next-line @typescript-eslint/ban-types
+    Function,
+    CircuitBreaker
+  >();
+
+  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+    const methodRef = context.getHandler();
+    let circuitBreaker: CircuitBreaker;
+
+    if (this.circuitBreakerbyHandler.has(methodRef)) {
+      circuitBreaker = this.circuitBreakerbyHandler.get(methodRef);
+    } else {
+      circuitBreaker = new CircuitBreaker();
+      this.circuitBreakerbyHandler.set(methodRef, circuitBreaker);
+    }
+    return circuitBreaker.exec(next);
+  }
+}
+```
